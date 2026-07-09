@@ -98,7 +98,7 @@ typedef FLAC__uint64 brword;
  * also depends on the CPU cache size and other factors; some twiddling
  * may be necessary to squeeze out the best performance.
  */
-static const uint32_t FLAC__BITREADER_DEFAULT_CAPACITY = 65536u / FLAC__BITS_PER_WORD; /* in words */
+static const uint32_t FLAC__BITREADER_DEFAULT_CAPACITY = 262144u / FLAC__BITS_PER_WORD; /* in words, increased from 65536 for better decode performance */
 
 struct FLAC__BitReader {
 	/* any partially-consumed word at the head will stay right-justified as bits are consumed from the left */
@@ -839,6 +839,198 @@ FLAC__SSE_TARGET("bmi2")
 FLAC__bool FLAC__bitreader_read_rice_signed_block_bmi2(FLAC__BitReader *br, int vals[], uint32_t nvals, uint32_t parameter)
 #include "deduplication/bitreader_read_rice_signed_block.c"
 #endif
+
+#if defined(FLAC__CPU_ARM64) && (ENABLE_64_BIT_WORDS == 1)
+/* ARM64-optimized rice decoding: exploits 64-bit words to batch-decode
+ * multiple rice codes from a single loaded word without refill checks.
+ * On typical 16-bit FLAC with parameter=4-8 and small MSBs, we can
+ * decode 5-10 samples per 64-bit word without any boundary checks. */
+FLAC__bool FLAC__bitreader_read_rice_signed_block_arm64(FLAC__BitReader *br, int vals[], uint32_t nvals, uint32_t parameter)
+{
+	uint32_t cwords, words, lsbs, msbs, x, y, limit;
+	uint32_t ucbits;
+	brword b;
+	int *val, *end;
+
+	FLAC__ASSERT(0 != br);
+	FLAC__ASSERT(0 != br->buffer);
+	FLAC__ASSERT(FLAC__BITS_PER_WORD >= 32);
+	FLAC__ASSERT(parameter < 32);
+
+	limit = UINT32_MAX >> parameter;
+
+	val = vals;
+	end = vals + nvals;
+
+	if(parameter == 0) {
+		while(val < end) {
+			if(!FLAC__bitreader_read_unary_unsigned(br, &msbs))
+				return false;
+			*val++ = (int)(msbs >> 1) ^ -(int)(msbs & 1);
+		}
+		return true;
+	}
+
+	FLAC__ASSERT(parameter > 0);
+
+	cwords = br->consumed_words;
+	words = br->words;
+
+	if(cwords >= words) {
+		x = 0;
+		goto process_tail_arm64;
+	}
+
+	ucbits = FLAC__BITS_PER_WORD - br->consumed_bits;
+	b = br->buffer[cwords] << br->consumed_bits;
+
+	while(val < end) {
+		/* FAST PATH: Try to decode entirely from current word.
+		 * This is the ARM64 optimization - we check if there are enough
+		 * bits in the current word to decode both MSBs and LSBs without
+		 * any word boundary crossing. With 64-bit words, this covers
+		 * the vast majority of rice codes. */
+
+		/* Count leading zeros for unary MSBs */
+		if(b == 0) {
+			/* All zeros in current word - need to span words (rare for typical audio) */
+			x = ucbits;
+			do {
+				cwords++;
+				if(cwords >= words)
+					goto incomplete_msbs_arm64;
+				b = br->buffer[cwords];
+				y = COUNT_ZERO_MSBS2(b);
+				x += y;
+			} while(y == FLAC__BITS_PER_WORD);
+			b <<= y;
+			b <<= 1;
+			ucbits = (FLAC__BITS_PER_WORD - y - 1);
+			msbs = x;
+		} else {
+			/* Common case: stop bit found in current word */
+			y = COUNT_ZERO_MSBS2(b);
+			msbs = y;
+			/* Check if entire code (msbs + 1 stop bit + parameter LSBs) fits in current word */
+			if(y + 1 + parameter <= ucbits) {
+				/* FASTEST PATH: everything in one word, no boundary check needed */
+				b <<= (y + 1);
+				ucbits -= (y + 1);
+				/* Extract LSBs directly */
+				lsbs = (FLAC__uint32)(b >> (FLAC__BITS_PER_WORD - parameter));
+				b <<= parameter;
+				ucbits -= parameter;
+				/* Compose and store value */
+				x = (msbs << parameter) | lsbs;
+				*val++ = (int)(x >> 1) ^ -(int)(x & 1);
+
+				/* Check if we exhausted the word */
+				if(ucbits == 0) {
+					cwords++;
+					if(cwords >= words) {
+						/* Need refill but try to continue */
+						br->consumed_bits = 0;
+						br->consumed_words = cwords;
+						/* Fall through to tail processing for remaining values */
+						x = 0;
+						goto process_tail_arm64;
+					}
+					b = br->buffer[cwords];
+					ucbits = FLAC__BITS_PER_WORD;
+				}
+				continue;
+			}
+			/* MSBs fit but LSBs might cross word boundary */
+			b <<= y;
+			b <<= 1;
+			ucbits -= (y + 1);
+		}
+
+		if(msbs > limit)
+			return false;
+
+		/* Read LSBs - may cross word boundary */
+		x = (FLAC__uint32)(b >> (FLAC__BITS_PER_WORD - parameter));
+		if(parameter <= ucbits) {
+			ucbits -= parameter;
+			b <<= parameter;
+		} else {
+			cwords++;
+			if(cwords >= words)
+				goto incomplete_lsbs_arm64;
+			b = br->buffer[cwords];
+			ucbits += FLAC__BITS_PER_WORD - parameter;
+			x |= (FLAC__uint32)(b >> ucbits);
+			b <<= FLAC__BITS_PER_WORD - ucbits;
+		}
+		lsbs = x;
+
+		/* Compose the value */
+		x = (msbs << parameter) | lsbs;
+		*val++ = (int)(x >> 1) ^ -(int)(x & 1);
+
+		/* Check if we need to advance to next word */
+		if(ucbits == 0) {
+			cwords++;
+			if(cwords < words) {
+				b = br->buffer[cwords];
+				ucbits = FLAC__BITS_PER_WORD;
+			} else {
+				/* Buffer exhausted, flush state and go to tail processing */
+				br->consumed_bits = 0;
+				br->consumed_words = cwords;
+				x = 0;
+				goto process_tail_arm64;
+			}
+		}
+		continue;
+
+		/* Tail processing for when we run out of buffered words */
+process_tail_arm64:
+		do {
+			if(0) {
+incomplete_msbs_arm64:
+				br->consumed_bits = 0;
+				br->consumed_words = cwords;
+			}
+
+			if(!FLAC__bitreader_read_unary_unsigned(br, &msbs))
+				return false;
+			msbs += x;
+			x = ucbits = 0;
+
+			if(0) {
+incomplete_lsbs_arm64:
+				br->consumed_bits = 0;
+				br->consumed_words = cwords;
+			}
+
+			if(!FLAC__bitreader_read_raw_uint32(br, &lsbs, parameter - ucbits))
+				return false;
+			lsbs = x | lsbs;
+
+			x = (msbs << parameter) | lsbs;
+			*val++ = (int)(x >> 1) ^ -(int)(x & 1);
+			x = 0;
+
+			cwords = br->consumed_words;
+			words = br->words;
+			ucbits = FLAC__BITS_PER_WORD - br->consumed_bits;
+			b = cwords < br->capacity ? br->buffer[cwords] << br->consumed_bits : 0;
+		} while(cwords >= words && val < end);
+	}
+
+	if(ucbits == 0 && cwords < words) {
+		cwords++;
+		ucbits = FLAC__BITS_PER_WORD;
+	}
+
+	br->consumed_bits = FLAC__BITS_PER_WORD - ucbits;
+	br->consumed_words = cwords;
+
+	return true;
+}
+#endif /* FLAC__CPU_ARM64 && ENABLE_64_BIT_WORDS */
 
 #if 0 /* UNUSED */
 FLAC__bool FLAC__bitreader_read_golomb_signed(FLAC__BitReader *br, int *val, uint32_t parameter)

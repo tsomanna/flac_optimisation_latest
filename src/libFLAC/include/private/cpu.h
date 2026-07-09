@@ -55,6 +55,14 @@
 
 #endif
 
+#ifndef FLAC__CPU_ARM64
+
+#if defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64)
+#define FLAC__CPU_ARM64
+#endif
+
+#endif
+
 #ifndef __has_attribute
 #define __has_attribute(x) 0
 #endif
