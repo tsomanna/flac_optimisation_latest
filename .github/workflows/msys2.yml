@@ -33,7 +33,7 @@ jobs:
       - uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.msystem }}
-          install: ${{ matrix.install }}s
+          install: ${{ matrix.install }}
 
       - name: Install pandoc
         run: |

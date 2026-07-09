@@ -73,7 +73,7 @@ void FLAC__lpc_restore_signal_intrin_neon(const FLAC__int32 *residual, uint32_t 
 	 * history[0] = data[i - order], history[order-1] = data[i-1] */
 	for (i = 0; i < (int)data_len - 1; i += 2) {
 		FLAC__int32 s = data[i - (int)order]; /* oldest history sample for data[i] */
-		FLAC__uint32 c = qlp_coeff[order - 1];
+		FLAC__int32 c = qlp_coeff[order - 1];
 		FLAC__int32 s0 = 0, s1 = 0;
 		int j;
 

@@ -12,7 +12,7 @@ jobs:
           - name: ubuntu-latest-clang-autotools
             os: ubuntu-latest
             cc: clang
-            cxx: clang++ #tania change
+            cxx: clang++
             build-system: autotools
             configure-opts: ''
 
