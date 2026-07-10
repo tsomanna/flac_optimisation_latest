@@ -134,6 +134,39 @@ void FLAC__lpc_restore_signal_wide_intrin_neon(const FLAC__int32 *residual, uint
 	}
 }
 
+/* When building with MSVC, lpc_intrin_neon.c is excluded because it uses
+ * GCC-only compound literal NEON vector initialization syntax.
+ * Provide fallback implementations for the encoder NEON functions that
+ * stream_encoder.c references. These call the generic C implementations. */
+#ifdef _MSC_VER
+
+void FLAC__lpc_compute_autocorrelation_intrin_neon_lag_8(const FLAC__real data[], uint32_t data_len, uint32_t lag, double autoc[])
+{
+    FLAC__lpc_compute_autocorrelation(data, data_len, lag, autoc);
+}
+
+void FLAC__lpc_compute_autocorrelation_intrin_neon_lag_10(const FLAC__real data[], uint32_t data_len, uint32_t lag, double autoc[])
+{
+    FLAC__lpc_compute_autocorrelation(data, data_len, lag, autoc);
+}
+
+void FLAC__lpc_compute_autocorrelation_intrin_neon_lag_14(const FLAC__real data[], uint32_t data_len, uint32_t lag, double autoc[])
+{
+    FLAC__lpc_compute_autocorrelation(data, data_len, lag, autoc);
+}
+
+void FLAC__lpc_compute_residual_from_qlp_coefficients_intrin_neon(const FLAC__int32 *data, uint32_t data_len, const FLAC__int32 qlp_coeff[], uint32_t order, int lp_quantization, FLAC__int32 residual[])
+{
+    FLAC__lpc_compute_residual_from_qlp_coefficients(data, data_len, qlp_coeff, order, lp_quantization, residual);
+}
+
+void FLAC__lpc_compute_residual_from_qlp_coefficients_wide_intrin_neon(const FLAC__int32 *data, uint32_t data_len, const FLAC__int32 qlp_coeff[], uint32_t order, int lp_quantization, FLAC__int32 residual[])
+{
+    FLAC__lpc_compute_residual_from_qlp_coefficients_wide(data, data_len, qlp_coeff, order, lp_quantization, residual);
+}
+
+#endif /* _MSC_VER */
+
 #endif /* FLAC__CPU_ARM64 && FLAC__HAS_NEONINTRIN */
 #endif /* FLAC__NO_ASM */
 #endif /* FLAC__INTEGER_ONLY_LIBRARY */

@@ -48,7 +48,7 @@ add_library(FLAC
     float.c
     format.c
     lpc.c
-    lpc_intrin_neon.c
+    $<$<NOT:$<C_COMPILER_ID:MSVC>>:lpc_intrin_neon.c>
     lpc_intrin_neon_decode.c
     lpc_intrin_sse2.c
     lpc_intrin_sse41.c
