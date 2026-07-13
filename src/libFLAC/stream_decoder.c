@@ -392,29 +392,13 @@ static FLAC__StreamDecoderInitStatus init_stream_internal_(
 	FLAC__cpu_info(&decoder->private_->cpuinfo);
 	decoder->private_->local_bitreader_read_rice_signed_block = FLAC__bitreader_read_rice_signed_block;
 
-	fprintf(stderr, "FLAC DEBUG: Rice decoder dispatch (SVE2 compiled: "
-#if defined(FLAC__CPU_ARM64) && FLAC__HAS_SVE2INTRIN && !defined(FLAC__NO_ASM)
-		"YES"
-#else
-		"NO"
-#endif
-		", BMI2 compiled: "
-#ifdef FLAC__BMI2_SUPPORTED
-		"YES"
-#else
-		"NO"
-#endif
-		")\n");
-
 #ifdef FLAC__BMI2_SUPPORTED
 	if (decoder->private_->cpuinfo.x86.bmi2) {
 		decoder->private_->local_bitreader_read_rice_signed_block = FLAC__bitreader_read_rice_signed_block_bmi2;
-		fprintf(stderr, "FLAC: Using BMI2-optimized rice decoder\n");
 	}
 #endif
 #if defined(FLAC__CPU_ARM64) && !defined(FLAC__NO_ASM)
 	decoder->private_->local_bitreader_read_rice_signed_block = FLAC__bitreader_read_rice_signed_block_sve2;
-	fprintf(stderr, "FLAC: Using ARM64-optimized rice decoder\n");
 #endif
 
 	/* Initialize LPC restore signal function pointers */
@@ -423,7 +407,6 @@ static FLAC__StreamDecoderInitStatus init_stream_internal_(
 #if defined(FLAC__CPU_ARM64) && FLAC__HAS_A64NEONINTRIN && !defined(FLAC__NO_ASM) && !defined(FLAC__INTEGER_ONLY_LIBRARY)
 	decoder->private_->local_lpc_restore_signal = FLAC__lpc_restore_signal_intrin_neon;
 	decoder->private_->local_lpc_restore_signal_wide = FLAC__lpc_restore_signal_wide_intrin_neon;
-	fprintf(stderr, "FLAC: Using NEON-optimized LPC restore signal\n");
 #endif
 
 	/* from here on, errors are fatal */

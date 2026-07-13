@@ -317,8 +317,6 @@ static int main_to_fuzz(int argc, char *argv[])
 {
 	int retval = 0;
 
-	fprintf(stderr, "FLAC TRACE [1]: main() entered\n");
-
 #ifdef __EMX__
 	_response(&argc, &argv);
 	_wildcard(&argc, &argv);
@@ -537,7 +535,6 @@ int do_it(void)
 
 	if(option_values.mode_decode) {
 		FLAC__bool first = true;
-		fprintf(stderr, "FLAC TRACE [2]: mode_decode=true, about to call decode_file()\n");
 
 		if(option_values.num_files == 0) {
 			retval = decode_file("-");
@@ -1826,7 +1823,6 @@ int decode_file(const char *infilename)
 {
 	int retval;
 	FLAC__bool treat_as_ogg = false;
-	fprintf(stderr, "FLAC TRACE [3]: decode_file() entered, infilename=%s\n", infilename ? infilename : "(null)");
 	FileFormat output_format = FORMAT_WAVE;
 	FileSubFormat output_subformat = SUBFORMAT_UNSPECIFIED;
 	decode_options_t decode_options;
