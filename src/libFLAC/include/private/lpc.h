@@ -203,7 +203,7 @@ uint32_t FLAC__lpc_max_residual_bps(uint32_t subframe_bps, const FLAC__int32 qlp
 void FLAC__lpc_restore_signal(const FLAC__int32 residual[], uint32_t data_len, const FLAC__int32 qlp_coeff[], uint32_t order, int lp_quantization, FLAC__int32 data[]);
 void FLAC__lpc_restore_signal_wide(const FLAC__int32 residual[], uint32_t data_len, const FLAC__int32 qlp_coeff[], uint32_t order, int lp_quantization, FLAC__int32 data[]);
 void FLAC__lpc_restore_signal_wide_33bit(const FLAC__int32 residual[], uint32_t data_len, const FLAC__int32 qlp_coeff[], uint32_t order, int lp_quantization, FLAC__int64 data[]);
-#if defined(FLAC__CPU_ARM64) && FLAC__HAS_NEONINTRIN && !defined(FLAC__NO_ASM) && !defined(FLAC__INTEGER_ONLY_LIBRARY)
+#if defined(FLAC__CPU_ARM64) && FLAC__HAS_A64NEONINTRIN && !defined(FLAC__NO_ASM) && !defined(FLAC__INTEGER_ONLY_LIBRARY)
 void FLAC__lpc_restore_signal_intrin_neon(const FLAC__int32 residual[], uint32_t data_len, const FLAC__int32 qlp_coeff[], uint32_t order, int lp_quantization, FLAC__int32 data[]);
 void FLAC__lpc_restore_signal_wide_intrin_neon(const FLAC__int32 residual[], uint32_t data_len, const FLAC__int32 qlp_coeff[], uint32_t order, int lp_quantization, FLAC__int32 data[]);
 #endif

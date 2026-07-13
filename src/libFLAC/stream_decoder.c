@@ -420,7 +420,7 @@ static FLAC__StreamDecoderInitStatus init_stream_internal_(
 	/* Initialize LPC restore signal function pointers */
 	decoder->private_->local_lpc_restore_signal = FLAC__lpc_restore_signal;
 	decoder->private_->local_lpc_restore_signal_wide = FLAC__lpc_restore_signal_wide;
-#if defined(FLAC__CPU_ARM64) && FLAC__HAS_NEONINTRIN && !defined(FLAC__NO_ASM) && !defined(FLAC__INTEGER_ONLY_LIBRARY)
+#if defined(FLAC__CPU_ARM64) && FLAC__HAS_A64NEONINTRIN && !defined(FLAC__NO_ASM) && !defined(FLAC__INTEGER_ONLY_LIBRARY)
 	decoder->private_->local_lpc_restore_signal = FLAC__lpc_restore_signal_intrin_neon;
 	decoder->private_->local_lpc_restore_signal_wide = FLAC__lpc_restore_signal_wide_intrin_neon;
 	fprintf(stderr, "FLAC: Using NEON-optimized LPC restore signal\n");

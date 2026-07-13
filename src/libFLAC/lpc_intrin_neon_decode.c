@@ -50,7 +50,7 @@
 
 #ifndef FLAC__INTEGER_ONLY_LIBRARY
 #ifndef FLAC__NO_ASM
-#if defined FLAC__CPU_ARM64 && FLAC__HAS_NEONINTRIN
+#if defined FLAC__CPU_ARM64 && FLAC__HAS_A64NEONINTRIN
 
 #include "private/lpc.h"
 #include "FLAC/assert.h"
@@ -99,9 +99,11 @@ static inline FLAC__int64 neon_lpc_dotprod(
     /* Horizontal add: sum both 64-bit lanes */
     FLAC__int64 sum = vaddvq_s64(acc);
 
-    /* Handle remaining odd coefficient */
+    /* Handle remaining odd coefficient.
+     * data_ptr points to data[i-1], so data_ptr[-j] = data[i-1-j] = data[i-(j+1)]
+     * which is what coeff[j] should multiply. */
     if (j < order) {
-        sum += (FLAC__int64)coeff[j] * data_ptr[-j - 1];
+        sum += (FLAC__int64)coeff[j] * data_ptr[-j];
     }
 
     return sum;
@@ -190,6 +192,6 @@ void FLAC__lpc_compute_residual_from_qlp_coefficients_wide_intrin_neon(const FLA
 
 #endif /* _MSC_VER */
 
-#endif /* FLAC__CPU_ARM64 && FLAC__HAS_NEONINTRIN */
+#endif /* FLAC__CPU_ARM64 && FLAC__HAS_A64NEONINTRIN */
 #endif /* FLAC__NO_ASM */
 #endif /* FLAC__INTEGER_ONLY_LIBRARY */
