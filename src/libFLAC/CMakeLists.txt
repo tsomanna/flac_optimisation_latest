@@ -9,6 +9,7 @@ check_function_exists(lround HAVE_LROUND)
 include(CheckCSourceCompiles)
 include(CheckCPUArch)
 include(CheckA64NEON)
+include(CheckA64SVE2)
 
 check_cpu_arch_x64(FLAC__CPU_X86_64)
 if(NOT FLAC__CPU_X86_64)
@@ -37,6 +38,7 @@ include_directories("include")
 add_library(FLAC
     bitmath.c
     bitreader.c
+    bitreader_read_rice_signed_block_sve2.c
     bitwriter.c
     cpu.c
     crc.c
@@ -49,6 +51,7 @@ add_library(FLAC
     format.c
     lpc.c
     lpc_intrin_neon.c
+    lpc_intrin_neon_decode.c
     lpc_intrin_sse2.c
     lpc_intrin_sse41.c
     lpc_intrin_avx2.c

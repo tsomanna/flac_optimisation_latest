@@ -49,6 +49,10 @@
 #include <sys/auxv.h>
 #endif
 
+#if defined(_WIN32) && defined(FLAC__CPU_ARM64)
+#include <windows.h>
+#endif
+
 #if (defined FLAC__CPU_IA32 || defined FLAC__CPU_X86_64) && FLAC__HAS_X86INTRIN && !defined FLAC__NO_ASM
 
 /* these are flags in EDX of CPUID AX=00000001 */
@@ -199,6 +203,48 @@ x86_cpu_info (FLAC__CPUInfo *info)
 #endif
 }
 
+static void
+arm64_cpu_info(FLAC__CPUInfo *info)
+{
+#if defined(FLAC__CPU_ARM64) && !defined(FLAC__NO_ASM)
+	info->use_asm = true;
+	info->arm64.sve2 = false;
+
+#if defined(_WIN32)
+	/* Windows ARM64: Use IsProcessorFeaturePresent or check via
+	 * PF_ARM_SVE2_INSTRUCTIONS_AVAILABLE (not yet in older SDK headers).
+	 * Use the numeric value 46 for PF_ARM_SVE2_INSTRUCTIONS_AVAILABLE
+	 * if the constant is not defined. */
+#ifndef PF_ARM_SVE2_INSTRUCTIONS_AVAILABLE
+#define PF_ARM_SVE2_INSTRUCTIONS_AVAILABLE 46
+#endif
+	if (IsProcessorFeaturePresent(PF_ARM_SVE2_INSTRUCTIONS_AVAILABLE))
+		info->arm64.sve2 = true;
+
+#elif defined(__linux__) && defined(HAVE_SYS_AUXV_H)
+	/* Linux ARM64: Check via getauxval */
+#ifndef HWCAP2_SVE2
+#define HWCAP2_SVE2 (1 << 1)
+#endif
+#ifndef AT_HWCAP2
+#define AT_HWCAP2 26
+#endif
+	unsigned long hwcap2 = getauxval(AT_HWCAP2);
+	if (hwcap2 & HWCAP2_SVE2)
+		info->arm64.sve2 = true;
+
+#elif defined(__APPLE__)
+	/* macOS/iOS ARM64: SVE2 is not currently available on Apple Silicon */
+	info->arm64.sve2 = false;
+
+#endif /* platform detection */
+
+#else
+	info->use_asm = false;
+	(void)info;
+#endif /* FLAC__CPU_ARM64 && !FLAC__NO_ASM */
+}
+
 void FLAC__cpu_info (FLAC__CPUInfo *info)
 {
 	memset(info, 0, sizeof(*info));
@@ -217,7 +263,7 @@ void FLAC__cpu_info (FLAC__CPUInfo *info)
 		x86_cpu_info (info);
 		break;
 	default:
-		info->use_asm = false;
+		arm64_cpu_info(info);
 		break;
 	}
 }

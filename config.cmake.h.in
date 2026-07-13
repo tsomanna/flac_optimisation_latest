@@ -31,6 +31,9 @@
 /* Set to 1 if <arm_neon.h> contains A64 intrinsics */
 #cmakedefine01 FLAC__HAS_A64NEONINTRIN
 
+/* Set to 1 if <arm_sve.h> is available and SVE2 BEXT can be used */
+#cmakedefine01 FLAC__HAS_SVE2INTRIN
+
 /* define if building for Darwin / MacOS X */
 #cmakedefine FLAC__SYS_DARWIN
 

@@ -145,6 +145,7 @@ static void print_stats(const DecoderSession *decoder_session);
 int flac__decode_file(const char *infilename, const char *outfilename, FLAC__bool analysis_mode, analysis_options aopts, decode_options_t options)
 {
 	DecoderSession decoder_session;
+	fprintf(stderr, "FLAC TRACE [4]: flac__decode_file() entered, infilename=%s\n", infilename ? infilename : "(null)");
 
 	FLAC__ASSERT(
 		options.format == FORMAT_WAVE ||
@@ -391,7 +392,9 @@ FLAC__bool DecoderSession_init_decoder(DecoderSession *decoder_session, const ch
 	else
 #endif
 	{
+		fprintf(stderr, "FLAC TRACE [5]: about to call FLAC__stream_decoder_init_file()\n");
 		init_status = FLAC__stream_decoder_init_file(decoder_session->decoder, strcmp(infilename, "-")? infilename : 0, write_callback, metadata_callback, error_callback, /*client_data=*/decoder_session);
+		fprintf(stderr, "FLAC TRACE [6]: FLAC__stream_decoder_init_file() returned status=%d\n", (int)init_status);
 	}
 
 	if(init_status != FLAC__STREAM_DECODER_INIT_STATUS_OK) {

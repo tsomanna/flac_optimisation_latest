@@ -1,0 +1,9 @@
+#include <arm_sve.h>
+int main (void)
+{
+    svuint64_t a = svdup_u64(0x12345678ULL);
+    svuint64_t b = svdup_u64(0x0F0F0F0FULL);
+    svuint64_t c = svbext_u64(a, b);
+    (void)c;
+    return 0;
+}

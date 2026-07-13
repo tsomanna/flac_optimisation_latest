@@ -169,6 +169,8 @@ typedef struct FLAC__StreamDecoderPrivate {
 	uint32_t unparseable_frame_count; /* used to tell whether we're decoding a future version of FLAC or just got a bad sync */
 	FLAC__bool got_a_frame; /* hack needed in Ogg FLAC seek routine and find_total_samples to check when process_single() actually writes a frame */
 	FLAC__bool (*local_bitreader_read_rice_signed_block)(FLAC__BitReader *br, int vals[], uint32_t nvals, uint32_t parameter);
+	void (*local_lpc_restore_signal)(const FLAC__int32 residual[], uint32_t data_len, const FLAC__int32 qlp_coeff[], uint32_t order, int lp_quantization, FLAC__int32 data[]);
+	void (*local_lpc_restore_signal_wide)(const FLAC__int32 residual[], uint32_t data_len, const FLAC__int32 qlp_coeff[], uint32_t order, int lp_quantization, FLAC__int32 data[]);
 	FLAC__bool error_has_been_sent; /* To check whether a missing frame has been signalled yet */
 #if FLAC__HAS_OGG
 	FLAC__bool ogg_decoder_aspect_allocation_failure;
@@ -390,10 +392,38 @@ static FLAC__StreamDecoderInitStatus init_stream_internal_(
 	FLAC__cpu_info(&decoder->private_->cpuinfo);
 	decoder->private_->local_bitreader_read_rice_signed_block = FLAC__bitreader_read_rice_signed_block;
 
+	fprintf(stderr, "FLAC DEBUG: Rice decoder dispatch (SVE2 compiled: "
+#if defined(FLAC__CPU_ARM64) && FLAC__HAS_SVE2INTRIN && !defined(FLAC__NO_ASM)
+		"YES"
+#else
+		"NO"
+#endif
+		", BMI2 compiled: "
+#ifdef FLAC__BMI2_SUPPORTED
+		"YES"
+#else
+		"NO"
+#endif
+		")\n");
+
 #ifdef FLAC__BMI2_SUPPORTED
 	if (decoder->private_->cpuinfo.x86.bmi2) {
 		decoder->private_->local_bitreader_read_rice_signed_block = FLAC__bitreader_read_rice_signed_block_bmi2;
+		fprintf(stderr, "FLAC: Using BMI2-optimized rice decoder\n");
 	}
+#endif
+#if defined(FLAC__CPU_ARM64) && !defined(FLAC__NO_ASM)
+	decoder->private_->local_bitreader_read_rice_signed_block = FLAC__bitreader_read_rice_signed_block_sve2;
+	fprintf(stderr, "FLAC: Using ARM64-optimized rice decoder\n");
+#endif
+
+	/* Initialize LPC restore signal function pointers */
+	decoder->private_->local_lpc_restore_signal = FLAC__lpc_restore_signal;
+	decoder->private_->local_lpc_restore_signal_wide = FLAC__lpc_restore_signal_wide;
+#if defined(FLAC__CPU_ARM64) && FLAC__HAS_NEONINTRIN && !defined(FLAC__NO_ASM) && !defined(FLAC__INTEGER_ONLY_LIBRARY)
+	decoder->private_->local_lpc_restore_signal = FLAC__lpc_restore_signal_intrin_neon;
+	decoder->private_->local_lpc_restore_signal_wide = FLAC__lpc_restore_signal_wide_intrin_neon;
+	fprintf(stderr, "FLAC: Using NEON-optimized LPC restore signal\n");
 #endif
 
 	/* from here on, errors are fatal */
@@ -3242,9 +3272,9 @@ FLAC__bool read_subframe_lpc_(FLAC__StreamDecoder *decoder, uint32_t channel, ui
 				decoder->private_->output[channel][i] = subframe->warmup[i];
 			if(FLAC__lpc_max_residual_bps(bps, subframe->qlp_coeff, order, subframe->quantization_level) <= 32 &&
 			   FLAC__lpc_max_prediction_before_shift_bps(bps, subframe->qlp_coeff, order) <= 32)
-				FLAC__lpc_restore_signal(decoder->private_->residual[channel], decoder->private_->frame.header.blocksize-order, subframe->qlp_coeff, order, subframe->quantization_level, decoder->private_->output[channel]+order);
+				decoder->private_->local_lpc_restore_signal(decoder->private_->residual[channel], decoder->private_->frame.header.blocksize-order, subframe->qlp_coeff, order, subframe->quantization_level, decoder->private_->output[channel]+order);
 			else
-				FLAC__lpc_restore_signal_wide(decoder->private_->residual[channel], decoder->private_->frame.header.blocksize-order, subframe->qlp_coeff, order, subframe->quantization_level, decoder->private_->output[channel]+order);
+				decoder->private_->local_lpc_restore_signal_wide(decoder->private_->residual[channel], decoder->private_->frame.header.blocksize-order, subframe->qlp_coeff, order, subframe->quantization_level, decoder->private_->output[channel]+order);
 		}
 		else {
 			decoder->private_->side_subframe_in_use = true;

@@ -55,6 +55,14 @@
 
 #endif
 
+#ifndef FLAC__CPU_ARM64
+
+#if defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)
+#define FLAC__CPU_ARM64
+#endif
+
+#endif
+
 #ifndef __has_attribute
 #define __has_attribute(x) 0
 #endif
@@ -184,9 +192,14 @@ typedef struct {
 } FLAC__CPUInfo_x86;
 
 typedef struct {
+	FLAC__bool sve2;
+} FLAC__CPUInfo_arm64;
+
+typedef struct {
 	FLAC__bool use_asm;
 	FLAC__CPUInfo_Type type;
 	FLAC__CPUInfo_x86 x86;
+	FLAC__CPUInfo_arm64 arm64;
 } FLAC__CPUInfo;
 
 void FLAC__cpu_info(FLAC__CPUInfo *info);
