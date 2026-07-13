@@ -84,6 +84,7 @@ libFLAC_la_LDFLAGS = $(AM_LDFLAGS) -no-undefined -version-info 14:0:0 $(windows_
 libFLAC_sources = \
 	bitmath.c \
 	bitreader.c \
+	bitreader_read_rice_signed_block_sve2.c \
 	bitwriter.c \
 	cpu.c \
 	crc.c \
@@ -100,6 +101,7 @@ libFLAC_sources = \
 	lpc_intrin_avx2.c \
 	lpc_intrin_fma.c \
 	lpc_intrin_neon.c \
+	lpc_intrin_neon_decode.c \
 	md5.c \
 	memory.c \
 	metadata_iterators.c \
