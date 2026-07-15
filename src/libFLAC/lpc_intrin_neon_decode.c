@@ -124,12 +124,12 @@ void FLAC__lpc_restore_signal_intrin_neon(
     int lp_quantization,
     FLAC__int32 *data)
 {
-    uint32_t i;
+    int i;
     FLAC__ASSERT(order > 0);
     FLAC__ASSERT(order <= 32);
 
-    for (i = 0; i < data_len; i++) {
-        FLAC__int64 sum = neon_lpc_dotprod(&data[i - 1], qlp_coeff, order);
+    for (i = 0; i < (int)data_len; i++) {
+        FLAC__int64 sum = neon_lpc_dotprod(data + i - 1, qlp_coeff, order);
         data[i] = residual[i] + (FLAC__int32)(sum >> lp_quantization);
     }
 }
@@ -149,12 +149,12 @@ void FLAC__lpc_restore_signal_wide_intrin_neon(
     int lp_quantization,
     FLAC__int32 *data)
 {
-    uint32_t i;
+    int i;
     FLAC__ASSERT(order > 0);
     FLAC__ASSERT(order <= 32);
 
-    for (i = 0; i < data_len; i++) {
-        FLAC__int64 sum = neon_lpc_dotprod(&data[i - 1], qlp_coeff, order);
+    for (i = 0; i < (int)data_len; i++) {
+        FLAC__int64 sum = neon_lpc_dotprod(data + i - 1, qlp_coeff, order);
         data[i] = residual[i] + (FLAC__int32)(sum >> lp_quantization);
     }
 }
